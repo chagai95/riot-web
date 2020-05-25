@@ -69,6 +69,7 @@ let widgetApi: WidgetApi;
         displayName = qsParam('displayName', true);
         avatarUrl = qsParam('avatarUrl', true); // http not mxc
         userId = qsParam('userId');
+        document.getElementById("matrixUserID").innerText =userId;
 
         if (widgetApi) {
             await widgetApi.waitReady();
@@ -86,9 +87,18 @@ let widgetApi: WidgetApi;
 })();
 
 function switchVisibleContainers() {
+    hideWebPhone();
     inConference = !inConference;
     document.getElementById("jitsiContainer").style.visibility = inConference ? 'unset' : 'hidden';
     document.getElementById("joinButtonContainer").style.visibility = inConference ? 'hidden' : 'unset';
+}
+
+
+function hideWebPhone() {
+    if(document.getElementById("diviframe").style.visibility === "visible"){
+        document.getElementById("diviframe").style.visibility = "hidden";
+        document.getElementById("toggleButtonWebPhone").innerText = "Show WebPhone";
+    }
 }
 
 function joinConference() { // event handler bound in HTML
