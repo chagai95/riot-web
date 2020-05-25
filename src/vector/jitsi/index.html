@@ -12,6 +12,40 @@
             <!-- TODO: i18n -->
             <h2>Jitsi Video Conference</h2>
             <button type="button" id="joinButton">Join Conference</button>
+            
+            
+            
+            <!--Aareswitch start-->
+
+
+            <button id = "toggleButtonWebPhone" onclick="toggleVisibilityWebPhone()">Show WebPhone </button>
+
+            <div id="matrixUserID"></div>
+
+
+            <div id="diviframe" style="display:block; visibility:hidden">
+
+                <iframe
+
+                    id="frame"
+
+                    sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-presentation"
+
+                    allow="microphone; camera; encrypted-media; autoplay;"
+
+                    width="540" height="600" src="https://213.173.185.12:8449/webphone.jsp" frameborder="0"
+
+                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen
+
+                ></iframe>
+
+            </div>
+
+
+            <!--Aareswitch end-->
+            
+            
+            
         </div>
     </div>
 </div>
