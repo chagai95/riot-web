@@ -18,25 +18,15 @@ limitations under the License.
 */
 
 import BasePlatform from 'matrix-react-sdk/src/BasePlatform';
-import { _t } from 'matrix-react-sdk/src/languageHandler';
-import dis from 'matrix-react-sdk/src/dispatcher/dispatcher';
+import {_t} from 'matrix-react-sdk/src/languageHandler';
 import {getVectorConfig} from "../getconfig";
 
 import Favicon from "../../favicon";
-
-export const updateCheckStatusEnum = {
-    CHECKING: 'CHECKING',
-    ERROR: 'ERROR',
-    NOTAVAILABLE: 'NOTAVAILABLE',
-    DOWNLOADING: 'DOWNLOADING',
-    READY: 'READY',
-};
 
 /**
  * Vector-specific extensions to the BasePlatform template
  */
 export default abstract class VectorBasePlatform extends BasePlatform {
-    protected showUpdateCheck: boolean = false;
     protected _favicon: Favicon;
 
     async getConfig(): Promise<{}> {
@@ -50,7 +40,7 @@ export default abstract class VectorBasePlatform extends BasePlatform {
     /**
      * Delay creating the `Favicon` instance until first use (on the first notification) as
      * it uses canvas, which can trigger a permission prompt in Firefox's resist fingerprinting mode.
-     * See https://github.com/vector-im/riot-web/issues/9605.
+     * See https://github.com/vector-im/element-web/issues/9605.
      */
     get favicon() {
         if (this._favicon) {
@@ -87,41 +77,6 @@ export default abstract class VectorBasePlatform extends BasePlatform {
      * Begin update polling, if applicable
      */
     startUpdater() {
-    }
-
-    /**
-     * Whether we can call checkForUpdate on this platform build
-     */
-    async canSelfUpdate(): Promise<boolean> {
-        return false;
-    }
-
-    startUpdateCheck = () => {
-        this.showUpdateCheck = true;
-        dis.dispatch({
-            action: 'check_updates',
-            value: { status: updateCheckStatusEnum.CHECKING },
-        });
-    };
-
-    stopUpdateCheck = () => {
-        this.showUpdateCheck = false;
-        dis.dispatch({
-            action: 'check_updates',
-            value: false,
-        });
-    };
-
-    getUpdateCheckStatusEnum() {
-        return updateCheckStatusEnum;
-    }
-
-    /**
-     * Update the currently running app to the latest available
-     * version and replace this instance of the app with the
-     * new version.
-     */
-    installUpdate() {
     }
 
     /**

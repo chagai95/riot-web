@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import olmWasmPath from "olm/olm.wasm";
 import Olm from 'olm';
@@ -26,6 +27,7 @@ import * as React from "react";
 import * as languageHandler from "matrix-react-sdk/src/languageHandler";
 import SettingsStore from "matrix-react-sdk/src/settings/SettingsStore";
 import ElectronPlatform from "./platform/ElectronPlatform";
+import PWAPlatform from "./platform/PWAPlatform";
 import WebPlatform from "./platform/WebPlatform";
 import PlatformPeg from "matrix-react-sdk/src/PlatformPeg";
 import SdkConfig from "matrix-react-sdk/src/SdkConfig";
@@ -39,8 +41,10 @@ export const rageshakePromise = initRageshake();
 export function preparePlatform() {
     if (window.ipcRenderer) {
         console.log("Using Electron platform");
-        const plaf = new ElectronPlatform();
-        PlatformPeg.set(plaf);
+        PlatformPeg.set(new ElectronPlatform());
+    } else if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log("Using PWA platform");
+        PlatformPeg.set(new PWAPlatform());
     } else {
         console.log("Using Web platform");
         PlatformPeg.set(new WebPlatform());
@@ -122,8 +126,9 @@ export async function loadSkin() {
             /* webpackPreload: true */
             "matrix-react-sdk"),
         import(
-            /* webpackChunkName: "riot-web-component-index" */
+            /* webpackChunkName: "element-web-component-index" */
             /* webpackPreload: true */
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore - this module is generated so may fail lint
             "../component-index"),
     ]);
@@ -138,7 +143,7 @@ export async function loadTheme() {
 export async function loadApp(fragParams: {}) {
     // load app.js async so that its code is not executed immediately and we can catch any exceptions
     const module = await import(
-        /* webpackChunkName: "riot-web-app" */
+        /* webpackChunkName: "element-web-app" */
         /* webpackPreload: true */
         "./app");
     window.matrixChat = ReactDOM.render(await module.loadApp(fragParams),
