@@ -1,9 +1,8 @@
 /*
 Copyright 2016 Aviral Dasgupta
 Copyright 2016 OpenMarket Ltd
-Copyright 2018 New Vector Ltd
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
-Copyright 2020 The Matrix.org Foundation C.I.C.
+Copyright 2018 - 2021 New Vector Ltd
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,38 +17,47 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import VectorBasePlatform from './VectorBasePlatform';
-import {UpdateCheckStatus} from "matrix-react-sdk/src/BasePlatform";
+import { UpdateCheckStatus } from "matrix-react-sdk/src/BasePlatform";
 import BaseEventIndexManager, {
-    CrawlerCheckpoint,
-    EventAndProfile,
-    IndexStats,
-    MatrixEvent,
-    MatrixProfile,
-    SearchArgs,
-    SearchResult,
+    ICrawlerCheckpoint,
+    IEventAndProfile,
+    IIndexStats,
+    IMatrixEvent,
+    IMatrixProfile,
+    ISearchArgs,
+    ISearchResult,
 } from 'matrix-react-sdk/src/indexing/BaseEventIndexManager';
 import dis from 'matrix-react-sdk/src/dispatcher/dispatcher';
-import {_t, _td} from 'matrix-react-sdk/src/languageHandler';
+import { _t, _td } from 'matrix-react-sdk/src/languageHandler';
 import SdkConfig from 'matrix-react-sdk/src/SdkConfig';
 import * as rageshake from 'matrix-react-sdk/src/rageshake/rageshake';
-import {MatrixClient} from "matrix-js-sdk/src/client";
-import {Room} from "matrix-js-sdk/src/models/room";
+import { MatrixClient } from "matrix-js-sdk/src/client";
+import { Room } from "matrix-js-sdk/src/models/room";
 import Modal from "matrix-react-sdk/src/Modal";
 import InfoDialog from "matrix-react-sdk/src/components/views/dialogs/InfoDialog";
 import Spinner from "matrix-react-sdk/src/components/views/elements/Spinner";
-import {Categories, Modifiers, registerShortcut} from "matrix-react-sdk/src/accessibility/KeyboardShortcuts";
-import {Key} from "matrix-react-sdk/src/Keyboard";
+import {
+    Categories,
+    CMD_OR_CTRL,
+    DIGITS,
+    Modifiers,
+    registerShortcut,
+} from "matrix-react-sdk/src/accessibility/KeyboardShortcuts";
+import { isOnlyCtrlOrCmdKeyEvent, Key } from "matrix-react-sdk/src/Keyboard";
 import React from "react";
-import {randomString} from "matrix-js-sdk/src/randomstring";
-import {Action} from "matrix-react-sdk/src/dispatcher/actions";
-import {ActionPayload} from "matrix-react-sdk/src/dispatcher/payloads";
-import {showToast as showUpdateToast} from "matrix-react-sdk/src/toasts/UpdateToast";
-import {CheckUpdatesPayload} from "matrix-react-sdk/src/dispatcher/payloads/CheckUpdatesPayload";
+import { randomString } from "matrix-js-sdk/src/randomstring";
+import { Action } from "matrix-react-sdk/src/dispatcher/actions";
+import { ActionPayload } from "matrix-react-sdk/src/dispatcher/payloads";
+import { SwitchSpacePayload} from "matrix-react-sdk/src/dispatcher/payloads/SwitchSpacePayload";
+import { showToast as showUpdateToast } from "matrix-react-sdk/src/toasts/UpdateToast";
+import { CheckUpdatesPayload } from "matrix-react-sdk/src/dispatcher/payloads/CheckUpdatesPayload";
 import ToastStore from "matrix-react-sdk/src/stores/ToastStore";
 import GenericExpiringToast from "matrix-react-sdk/src/components/views/toasts/GenericExpiringToast";
+import SettingsStore from 'matrix-react-sdk/src/settings/SettingsStore';
 
-const ipcRenderer = window.ipcRenderer;
+import VectorBasePlatform from './VectorBasePlatform';
+
+const electron = window.electron;
 const isMac = navigator.platform.toUpperCase().includes('MAC');
 
 function platformFriendlyName(): string {
@@ -74,7 +82,7 @@ function platformFriendlyName(): string {
 function _onAction(payload: ActionPayload) {
     // Whitelist payload actions, no point sending most across
     if (['call_state'].includes(payload.action)) {
-        ipcRenderer.send('app_onAction', payload);
+        electron.send('app_onAction', payload);
     }
 }
 
@@ -104,7 +112,7 @@ class SeshatIndexManager extends BaseEventIndexManager {
     constructor() {
         super();
 
-        ipcRenderer.on('seshatReply', this._onIpcReply);
+        electron.on('seshatReply', this._onIpcReply);
     }
 
     async _ipcCall(name: string, ...args: any[]): Promise<any> {
@@ -112,7 +120,7 @@ class SeshatIndexManager extends BaseEventIndexManager {
         const ipcCallId = ++this.nextIpcCallId;
         return new Promise((resolve, reject) => {
             this.pendingIpcCalls[ipcCallId] = {resolve, reject};
-            window.ipcRenderer.send('seshat', {id: ipcCallId, name, args});
+            window.electron.send('seshat', {id: ipcCallId, name, args});
         });
     }
 
@@ -144,7 +152,7 @@ class SeshatIndexManager extends BaseEventIndexManager {
         return this._ipcCall('initEventIndex', userId, deviceId);
     }
 
-    async addEventToIndex(ev: MatrixEvent, profile: MatrixProfile): Promise<void> {
+    async addEventToIndex(ev: IMatrixEvent, profile: IMatrixProfile): Promise<void> {
         return this._ipcCall('addEventToIndex', ev, profile);
     }
 
@@ -164,31 +172,31 @@ class SeshatIndexManager extends BaseEventIndexManager {
         return this._ipcCall('commitLiveEvents');
     }
 
-    async searchEventIndex(searchConfig: SearchArgs): Promise<SearchResult> {
+    async searchEventIndex(searchConfig: ISearchArgs): Promise<ISearchResult> {
         return this._ipcCall('searchEventIndex', searchConfig);
     }
 
     async addHistoricEvents(
-        events: [EventAndProfile],
-        checkpoint: CrawlerCheckpoint | null,
-        oldCheckpoint: CrawlerCheckpoint | null,
+        events: IEventAndProfile[],
+        checkpoint: ICrawlerCheckpoint | null,
+        oldCheckpoint: ICrawlerCheckpoint | null,
     ): Promise<boolean> {
         return this._ipcCall('addHistoricEvents', events, checkpoint, oldCheckpoint);
     }
 
-    async addCrawlerCheckpoint(checkpoint: CrawlerCheckpoint): Promise<void> {
+    async addCrawlerCheckpoint(checkpoint: ICrawlerCheckpoint): Promise<void> {
         return this._ipcCall('addCrawlerCheckpoint', checkpoint);
     }
 
-    async removeCrawlerCheckpoint(checkpoint: CrawlerCheckpoint): Promise<void> {
+    async removeCrawlerCheckpoint(checkpoint: ICrawlerCheckpoint): Promise<void> {
         return this._ipcCall('removeCrawlerCheckpoint', checkpoint);
     }
 
-    async loadFileEvents(args): Promise<[EventAndProfile]> {
+    async loadFileEvents(args): Promise<IEventAndProfile[]> {
         return this._ipcCall('loadFileEvents', args);
     }
 
-    async loadCheckpoints(): Promise<[CrawlerCheckpoint]> {
+    async loadCheckpoints(): Promise<ICrawlerCheckpoint[]> {
         return this._ipcCall('loadCheckpoints');
     }
 
@@ -196,7 +204,7 @@ class SeshatIndexManager extends BaseEventIndexManager {
         return this._ipcCall('closeEventIndex');
     }
 
-    async getStats(): Promise<IndexStats> {
+    async getStats(): Promise<IIndexStats> {
         return this._ipcCall('getStats');
     }
 
@@ -230,7 +238,7 @@ export default class ElectronPlatform extends VectorBasePlatform {
             false if there is not
             or the error if one is encountered
          */
-        ipcRenderer.on('check_updates', (event, status) => {
+        electron.on('check_updates', (event, status) => {
             dis.dispatch<CheckUpdatesPayload>({
                 action: Action.CheckUpdates,
                 ...getUpdateCheckStatus(status),
@@ -238,21 +246,21 @@ export default class ElectronPlatform extends VectorBasePlatform {
         });
 
         // try to flush the rageshake logs to indexeddb before quit.
-        ipcRenderer.on('before-quit', function() {
+        electron.on('before-quit', function() {
             console.log('element-desktop closing');
             rageshake.flush();
         });
 
-        ipcRenderer.on('ipcReply', this._onIpcReply);
-        ipcRenderer.on('update-downloaded', this.onUpdateDownloaded);
+        electron.on('ipcReply', this._onIpcReply);
+        electron.on('update-downloaded', this.onUpdateDownloaded);
 
-        ipcRenderer.on('preferences', () => {
+        electron.on('preferences', () => {
             dis.fire(Action.ViewUserSettings);
         });
 
-        ipcRenderer.on('userDownloadCompleted', (ev, {path, name}) => {
+        electron.on('userDownloadCompleted', (ev, {path, name}) => {
             const onAccept = () => {
-                ipcRenderer.send('userDownloadOpen', {path});
+                electron.send('userDownloadOpen', {path});
             };
 
             ToastStore.sharedInstance().addOrReplaceToast({
@@ -271,6 +279,14 @@ export default class ElectronPlatform extends VectorBasePlatform {
         });
 
         // register OS-specific shortcuts
+        registerShortcut(Categories.NAVIGATION, {
+            keybinds: [{
+                modifiers: [CMD_OR_CTRL],
+                key: DIGITS,
+            }],
+            description: _td("Switch to space by number"),
+        });
+
         if (isMac) {
             registerShortcut(Categories.NAVIGATION, {
                 keybinds: [{
@@ -324,11 +340,21 @@ export default class ElectronPlatform extends VectorBasePlatform {
         return 'Electron Platform'; // no translation required: only used for analytics
     }
 
+    /**
+     * Return true if platform supports multi-language
+     * spell-checking, otherwise false.
+     */
+    supportsMultiLanguageSpellCheck(): boolean {
+        // Electron uses OS spell checking on macOS, so no need for in-app options
+        if (isMac) return false;
+        return true;
+    }
+
     setNotificationCount(count: number) {
         if (this.notificationCount === count) return;
         super.setNotificationCount(count);
 
-        ipcRenderer.send('setBadgeCount', count);
+        electron.send('setBadgeCount', count);
     }
 
     supportsNotifications(): boolean {
@@ -371,7 +397,7 @@ export default class ElectronPlatform extends VectorBasePlatform {
     }
 
     loudNotification(ev: Event, room: Object) {
-        ipcRenderer.send('loudNotification');
+        electron.send('loudNotification');
     }
 
     async getAppVersion(): Promise<string> {
@@ -388,6 +414,18 @@ export default class ElectronPlatform extends VectorBasePlatform {
 
     async setAutoLaunchEnabled(enabled: boolean): Promise<void> {
         return this._ipcCall('setAutoLaunchEnabled', enabled);
+    }
+
+    supportsWarnBeforeExit(): boolean {
+        return true;
+    }
+
+    async shouldWarnBeforeExit(): Promise<boolean> {
+        return this._ipcCall('shouldWarnBeforeExit');
+    }
+
+    async setWarnBeforeExit(enabled: boolean): Promise<void> {
+        return this._ipcCall('setWarnBeforeExit', enabled);
     }
 
     supportsAutoHideMenuBar(): boolean {
@@ -423,14 +461,14 @@ export default class ElectronPlatform extends VectorBasePlatform {
 
     startUpdateCheck() {
         super.startUpdateCheck();
-        ipcRenderer.send('check_updates');
+        electron.send('check_updates');
     }
 
     installUpdate() {
         // IPC to the main process to install the update, since quitAndInstall
         // doesn't fire the before-quit event so the main process needs to know
         // it should exit.
-        ipcRenderer.send('install_update');
+        electron.send('install_update');
     }
 
     getDefaultDeviceDisplayName(): string {
@@ -460,7 +498,7 @@ export default class ElectronPlatform extends VectorBasePlatform {
         const ipcCallId = ++this.nextIpcCallId;
         return new Promise((resolve, reject) => {
             this.pendingIpcCalls[ipcCallId] = {resolve, reject};
-            window.ipcRenderer.send('ipcCall', {id: ipcCallId, name, args});
+            window.electron.send('ipcCall', {id: ipcCallId, name, args});
             // Maybe add a timeout to these? Probably not necessary.
         });
     }
@@ -489,11 +527,23 @@ export default class ElectronPlatform extends VectorBasePlatform {
         return this.eventIndexManager;
     }
 
-    setLanguage(preferredLangs: string[]) {
-        this._ipcCall('setLanguage', preferredLangs).catch(error => {
-            console.log("Failed to send setLanguage IPC to Electron");
+    async setLanguage(preferredLangs: string[]) {
+        return this._ipcCall('setLanguage', preferredLangs);
+    }
+
+    setSpellCheckLanguages(preferredLangs: string[]) {
+        this._ipcCall('setSpellCheckLanguages', preferredLangs).catch(error => {
+            console.log("Failed to send setSpellCheckLanguages IPC to Electron");
             console.error(error);
         });
+    }
+
+    async getSpellCheckLanguages(): Promise<string[]> {
+        return this._ipcCall('getSpellCheckLanguages');
+    }
+
+    async getAvailableSpellCheckLanguages(): Promise<string[]> {
+        return this._ipcCall('getAvailableSpellCheckLanguages');
     }
 
     getSSOCallbackUrl(fragmentAfterLogin: string): URL {
@@ -512,8 +562,14 @@ export default class ElectronPlatform extends VectorBasePlatform {
         });
     }
 
-    _navigateForwardBack(back: boolean) {
+    private navigateForwardBack(back: boolean) {
         this._ipcCall(back ? "navigateBack" : "navigateForward");
+    }
+    private navigateToSpace(num: number) {
+        dis.dispatch<SwitchSpacePayload>({
+            action: Action.SwitchSpace,
+            num,
+        });
     }
 
     onKeyDown(ev: KeyboardEvent): boolean {
@@ -523,7 +579,7 @@ export default class ElectronPlatform extends VectorBasePlatform {
             case Key.SQUARE_BRACKET_LEFT:
             case Key.SQUARE_BRACKET_RIGHT:
                 if (isMac && ev.metaKey && !ev.altKey && !ev.ctrlKey && !ev.shiftKey) {
-                    this._navigateForwardBack(ev.key === Key.SQUARE_BRACKET_LEFT);
+                    this.navigateForwardBack(ev.key === Key.SQUARE_BRACKET_LEFT);
                     handled = true;
                 }
                 break;
@@ -531,7 +587,23 @@ export default class ElectronPlatform extends VectorBasePlatform {
             case Key.ARROW_LEFT:
             case Key.ARROW_RIGHT:
                 if (!isMac && ev.altKey && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey) {
-                    this._navigateForwardBack(ev.key === Key.ARROW_LEFT);
+                    this.navigateForwardBack(ev.key === Key.ARROW_LEFT);
+                    handled = true;
+                }
+                break;
+
+            case "1":
+            case "2":
+            case "3":
+            case "4":
+            case "5":
+            case "6":
+            case "7":
+            case "8":
+            case "9":
+            case "0":
+                if (SettingsStore.getValue("feature_spaces") && isOnlyCtrlOrCmdKeyEvent(ev)) {
+                    this.navigateToSpace(parseInt(ev.key, 10));
                     handled = true;
                 }
                 break;
